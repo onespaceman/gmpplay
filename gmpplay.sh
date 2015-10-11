@@ -13,7 +13,7 @@ port="9999" #GMusicProxy port
 searchartist () {
 	echo "Artist?";
 	read artist;
-	search1="matches&artist=${artist// /%}";
+	search1="artist&artist=${artist// /%}";
 	search2="&num_tracks=$numtracks"; }
 
 searchalbum () {
