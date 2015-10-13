@@ -1,12 +1,14 @@
 #! /bin/bash
 
 #Easy search for GMusicProxy
+#dependencies
 
 #variables
-searchtype="get_by_search"
+playlistfolder="/home/kirill/.config/mpd/playlists"
 numtracks="100" #max number of tracks to get
 host="localhost" #GMusicProxy host
 port="9999" #GMusicProxy port
+searchtype="get_by_search"
 
 #actual code
 #search types
@@ -65,6 +67,10 @@ $option
 
 $doclear
 
-curl -s "http://$host:$port/$searchtype?type=$search1$search2" | 
+curl -s "http://$host:$port/$searchtype?type=$search1$search2" | tee $playlistfolder/current.m3u |
   grep -v "^#" | while read url; do mpc add "$url"; done
+
+#Use gmusic-mpd to add tags
+gmusic-mpd -d $playlistfolder current
+
 mpc play
