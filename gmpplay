@@ -1,0 +1,81 @@
+#! /bin/bash
+
+#Easy search for GMusicProxy
+
+#variables
+playlistfolder="$HOME/.config/mpd/playlists"
+numtracks="100" #max number of tracks to get
+host="localhost" #GMusicProxy host
+port="9999" #GMusicProxy port
+searchtype="get_by_search"
+option="searchartist"
+
+usage () {
+        printf  "Usage: gmpplay <options> artist - title \n -h	show help \n -c	clear current playlist \n \n 	add an artist (default) \n -a	add an album \n -s	add a song (only creating radio stations from songs works right now) \n -r	create radio station from an album/artist/song \n";
+	exit;
+}
+
+#search types
+searchartist () {
+	search1="artist&artist=${artist// /%}";
+	search2="&num_tracks=$numtracks";
+}
+
+searchalbum () {
+        searchartist;
+	search1="album&artist=${artist// /%}&title=${title// /%}";
+}
+
+searchsong () {
+        searchartist;
+	search1="song&artist=${artist// /%}&title=${title// /%}";
+}
+
+#option 
+while getopts "hcasr" opt; do
+        case $opt in
+                h)
+                        usage
+                        ;;
+                c)
+                        doclear="mpc -q clear"
+                        ;;
+                a)
+                        option="searchalbum"
+                        ;;
+                s)
+                        option="searchsong"
+                        ;;
+                r)
+                        searchtype="get_new_station_by_search"
+                        ;;
+                \?)
+                        usage
+                        ;;
+        esac
+        shift $((OPTIND-1))
+done
+
+#check if artist/title is given and prompt if not
+if (( "$#" != 0 )); then
+        IFS="-" read -r artist title <<< "$@"
+else
+        printf "Artist: "
+        read artist
+        if [ $option != "searchartist" ]; then
+                printf "Title: "
+                read title
+        fi
+fi
+
+#call functions
+$option
+$doclear
+
+curl -s "http://$host:$port/$searchtype?type=$search1$search2" | tee $playlistfolder/current.m3u |
+  grep -v "^#" | while read url; do mpc add "$url"; done
+
+#Use gmusic-mpd to add tags
+gmusic-mpd -d $playlistfolder current > /dev/null
+
+mpc -q  play
