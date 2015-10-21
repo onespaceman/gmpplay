@@ -59,6 +59,8 @@ done
 #check if artist/title is given and prompt if not
 if (( "$#" != 0 )); then
         IFS="-" read -r artist title <<< "$@"
+        artist="$(echo -e "${artist}" | sed -e 's/[[:space:]]*$//')"
+        title="$(echo -e "${title}" | sed -e 's/^[[:space:]]*//')"
 else
         printf "Artist: "
         read artist
