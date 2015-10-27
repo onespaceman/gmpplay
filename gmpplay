@@ -1,4 +1,24 @@
 #! /bin/bash
+#
+# Copyright (c) 2015
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 #Easy search for GMusicProxy
 
@@ -11,7 +31,47 @@ searchtype="get_by_search"
 option="searchartist"
 
 usage () {
-        printf  "Usage: gmpplay <options> artist - title \n -h	show help \n -c	clear current playlist \n \n 	add an artist (default) \n -a	add an album \n -s	add a song (only creating radio stations from songs works right now) \n -r	create radio station from an album/artist/song \n";
+        echo  "
+$(tput bold)ABOUT$(tput sgr0)
+   $(tput bold)gmpplay$(tput sgr0) - Quickly add music through GMusicProxy
+
+$(tput bold)USAGE$(tput sgr0)
+   $(tput bold)gmpplay$(tput sgr0) [options] Artist - Title
+
+   Options are to be combined like: -cra
+   The artist and title is to be separated with a "-"
+
+$(tput bold)OPTIONS$(tput sgr0)
+   $(tput bold)Default$(tput sgr0)
+      The default action of mpdplay is to add an artist.
+
+      Example:
+      $(tput bold)gmpplay$(tput sgr0) Artist
+
+   $(tput bold)-a$(tput sgr0)
+      Add an album
+
+      Example:
+      $(tput bold)gmpplay$(tput sgr0) -a Artist - Album Title
+
+   $(tput bold)-s$(tput sgr0)
+      Add a song (currently only works for radio stations)
+
+      Example:
+      $(tput bold)gmpplay$(tput sgr0) -sr Artist - Song Title
+
+      $(tput bold)-r$(tput sgr0)
+      Create a radio station from an artist, album or song.
+
+      Example:
+      $(tput bold)gmpplay$(tput sgr0) -r Artist
+
+   $(tput bold)-h$(tput sgr0)
+      Show help
+
+   $(tput bold)-c$(tput sgr0)
+      Clear current playlist in mpd before adding songs
+      "
 	exit;
 }
 
@@ -50,6 +110,7 @@ while getopts "hcasr" opt; do
                         searchtype="get_new_station_by_search"
                         ;;
                 \?)
+                        echo "Invalid option"
                         usage
                         ;;
         esac
