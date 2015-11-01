@@ -23,10 +23,11 @@
 #Easy search for GMusicProxy
 
 #variables
-playlistfolder="$HOME/.config/mpd/playlists"
 numtracks="100" #max number of tracks to get
 host="localhost" #GMusicProxy host
 port="9999" #GMusicProxy port
+mpd_host="localhost" #mpd host
+mpd_port="6600" #mpd  port
 searchtype="get_by_search"
 option="searchartist"
 
@@ -91,7 +92,7 @@ searchsong () {
 	search1="song&artist=${artist// /%}&title=${title// /%}";
 }
 
-#option 
+#options
 while getopts "hcasr" opt; do
         case $opt in
                 h)
@@ -135,10 +136,36 @@ fi
 $option
 $doclear
 
-curl -s "http://$host:$port/$searchtype?type=$search1$search2" | tee $playlistfolder/current.m3u |
-  grep -v "^#" | while read url; do mpc add "$url"; done
+curl -s "http://$host:$port/$searchtype?type=$search1$search2" | tee /tmp/current.m3u | grep -v "^#" | while read url; do mpc add "$url"; done
 
-#Use gmusic-mpd to add tags
-gmusic-mpd -d $playlistfolder current > /dev/null
+#import playlist into arrays
+while read line
+do
+        p_artist+=("${line%% - *}")
+        tmp="${line#* - }"
+        p_title+=("${tmp% - *}")
+        p_album+=("${line##* - }")
+done <<< "$(cat /tmp/current.m3u | sed -n 0~2p | sed -e 's/.*[0-9],//')"
+
+#get the current playlist info
+exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
+sleep 0.5s
+echo "playlistid" >&5
+echo "close" >&5
+idlist=($(cat <&5 | sed '/ Id: /,/ file:/d' | sed -n '/^Id: /p' | sed 's/Id: //'))
+exec 5>&-
+
+#add tags
+exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
+sleep 0.5s
+for ((i=${#idlist[@]}-${#p_artist[@]}, j=0; i<${#p_artist[@]}, j<${#p_artist[@]}; i++, j++))
+do
+        echo "cleartagid ${idlist[$i]}" >&5
+        echo "addtagid ${idlist[$i]} artist \"${p_artist[$j]}\"" >&5
+        echo "addtagid ${idlist[$i]} title \"${p_title[$j]}\"" >&5
+        echo "addtagid ${idlist[$i]} album \"${p_album[$j]}\"" >&5
+done
+echo "close" >&5
+exec 5>&-
 
 mpc -q  play

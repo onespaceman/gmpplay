@@ -1,9 +1,9 @@
 # gpmplay:
-easily play music with mpd and GMusicProxy. Uses gmusic-mpd to add tags to the playlist.
+easily play music with mpd and GMusicProxy.
 
 #####usage 
 `chmod +x <filename>`  
-`gmpplay.sh <options> <artist> - <title>`  
+`gmpplay <options> <artist> - <title>`  
 <sub>variables may need to be edited at the top of the file to be able to work</sub>
  
 #####options
@@ -17,16 +17,15 @@ easily play music with mpd and GMusicProxy. Uses gmusic-mpd to add tags to the p
 
 #####examples:
 
-`gmpplay.sh -c`
+`gmpplay -c`
 
 clear the current playlist and add songs from an artist
 
-`gmpplay.sh -sr artist - song`
+`gmpplay -sr artist - song`
 
-create a station from Song by artist and add to the current playlist
+create a radio station from Song by artist and add to the current playlist
 
 #####dependencies:
 
 [mpd and mpc](http://www.musicpd.org/)  
 [GMusicProxy](http://gmusicproxy.net/)  
-[gmusic-mpd](https://github.com/Illyism/GMusic-MPD)
