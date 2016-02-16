@@ -18,7 +18,7 @@ $(tput bold)USAGE$(tput sgr0)
     The artist and title is to be separated with a dash -
 
 $(tput bold)OPTIONS$(tput sgr0)
-    The default action of mpdplay is to add an artist.
+    The default action of gmpplay is to add an artist.
 
     $(tput bold)-a$(tput sgr0) Add an album
     $(tput bold)-s$(tput sgr0) Add a song
@@ -31,65 +31,48 @@ $(tput bold)OPTIONS$(tput sgr0)
 
 # Default variables
 numtracks="100" # Max number of tracks to get
-searchtype="get_by_search"
-option="searchartist"
-
-
-# Search functions
-searchartist () {
-    search1="artist&artist=${artist// /%}";
-    search2="&num_tracks=$numtracks";
-}
-
-searchalbum () {
-    searchartist;
-    search1="album&artist=${artist// /%}&title=${title// /%}";
-}
-
-searchsong () {
-    searchartist;
-    search1="song&artist=${artist// /%}&title=${title// /%}";
-}
+search_type="get_by_search"
+search_for="artist"
 
 # Options
 while getopts "hcasr" opt; do
-        case $opt in
-                h)
-                        usage
-                        ;;
-                c)
-                        doclear="mpc -q clear"
-                        ;;
-                a)
-                        option="searchalbum"
-                        ;;
-                s)
-                        option="searchsong"
-                        ;;
-                r)
-                        searchtype="get_new_station_by_search"
-                        ;;
-                \?)
-                        echo "Invalid option"
-                        usage
-                        ;;
-        esac
-        shift $((OPTIND-1))
+    case $opt in
+        h)
+            usage
+            ;;
+        c)
+            doclear=1
+            ;;
+        a)
+            search_for="album"
+            ;;
+        s)
+            search_for="song"
+            ;;
+        r)
+            search_type="get_new_station_by_search"
+            ;;
+        \?)
+            echo "Invalid option"
+            usage
+            ;;
+    esac
+    shift $((OPTIND-1))
 done
 
 
 # Check if artist/title is given and prompt if not
 if (( "$#" != 0 )); then
-        IFS="-" read -r artist title <<< "$@"
-        artist="$(echo -e "${artist}" | sed -e 's/[[:space:]]*$//')"
-        title="$(echo -e "${title}" | sed -e 's/^[[:space:]]*//')"
+    IFS="-" read -r artist title <<< "$@"
+    artist="$(echo -e "${artist}" | sed -e 's/[[:space:]]*$//')"
+    title="$(echo -e "${title}" | sed -e 's/^[[:space:]]*//')"
 else
-        printf "Artist: "
-        read artist
-        if [ $option != "searchartist" ]; then
-                printf "Title: "
-                read title
-        fi
+    printf "Artist: "
+    read artist
+    if [ $option != "searchartist" ]; then
+        printf "Title: "
+        read title
+    fi
 fi
 
 
@@ -122,14 +105,15 @@ else
     gmp_port="9999"
 fi
 
-# Call functions
-$option
-$doclear
+# Clear mpc queue
+if [[ -n "$doclear" ]]; then
+    mpc -q clear
+fi
 
 # Get music with GMusicProxy
-search_url="http://$gmp_host:$gmp_port/$searchtype?type=$search1$search2"
+search_url="http://$gmp_host:$gmp_port/$search_type?type=${search_for}&artist=${artist// /%}&title=${title// /%}&num_tracks=$numtracks"
 
-if [[ "$option" = searchsong ]] | [[ "$searchtype" = get_by_search ]]; then
+if [[ "$search_for" = "song" ]] && [[ "$search_type" = "get_by_search" ]]; then
     mpc add "$search_url"
 else
     curl -s "$search_url" | tee /tmp/current.m3u | grep -v "^#" | while read url; do mpc add "$url"; done
