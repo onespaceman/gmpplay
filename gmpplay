@@ -77,6 +77,22 @@ while getopts "hcasr" opt; do
         shift $((OPTIND-1))
 done
 
+
+# Check if artist/title is given and prompt if not
+if (( "$#" != 0 )); then
+        IFS="-" read -r artist title <<< "$@"
+        artist="$(echo -e "${artist}" | sed -e 's/[[:space:]]*$//')"
+        title="$(echo -e "${title}" | sed -e 's/^[[:space:]]*//')"
+else
+        printf "Artist: "
+        read artist
+        if [ $option != "searchartist" ]; then
+                printf "Title: "
+                read title
+        fi
+fi
+
+
 # Get MPD config from ~/.config/mpd/mpd.conf
 if grep -Fq "bind_to_address" $HOME/.config/mpd/mpd.conf; then
     mpd_host=$(grep -F "bind_to_address" $HOME/.config/mpd/mpd.conf \
@@ -106,54 +122,45 @@ else
     gmp_port="9999"
 fi
 
-# Check if artist/title is given and prompt if not
-if (( "$#" != 0 )); then
-        IFS="-" read -r artist title <<< "$@"
-        artist="$(echo -e "${artist}" | sed -e 's/[[:space:]]*$//')"
-        title="$(echo -e "${title}" | sed -e 's/^[[:space:]]*//')"
-else
-        printf "Artist: "
-        read artist
-        if [ $option != "searchartist" ]; then
-                printf "Title: "
-                read title
-        fi
-fi
-
 # Call functions
 $option
 $doclear
 
 # Get music with GMusicProxy
-curl -s "http://$gmp_host:$gmp_port/$searchtype?type=$search1$search2" | tee /tmp/current.m3u | grep -v "^#" | while read url; do mpc add "$url"; done
+search_url="http://$gmp_host:$gmp_port/$searchtype?type=$search1$search2"
 
-# Import playlist into arrays
-while read line; do
-    p_artist+=("${line%% - *}")
-    tmp="${line#* - }"
-    p_title+=("${tmp% - *}")
-    p_album+=("${line##* - }")
-done <<< "$(cat /tmp/current.m3u | sed -n 0~2p | sed -e 's/.*[0-9],//')"
+if [[ "$option" = searchsong ]] | [[ "$searchtype" = get_by_search ]]; then
+    mpc add "$search_url"
+else
+    curl -s "$search_url" | tee /tmp/current.m3u | grep -v "^#" | while read url; do mpc add "$url"; done
 
-# Get the current playlist info
-exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
-sleep 0.5s
-echo "playlistid" >&5
-echo "close" >&5
-idlist=($(cat <&5 | sed '/ Id: /,/ file:/d' | sed -n '/^Id: /p' | sed 's/Id: //'))
-exec 5>&-
+    # Import playlist into arrays
+    while read line; do
+        p_artist+=("${line%% - *}")
+        tmp="${line#* - }"
+        p_title+=("${tmp% - *}")
+        p_album+=("${line##* - }")
+    done <<< "$(cat /tmp/current.m3u | sed -n 0~2p | sed -e 's/.*[0-9],//')"
 
-# Add tags
-exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
-sleep 0.5s
-for ((i=${#idlist[@]}-${#p_artist[@]}, j=0; i<${#p_artist[@]}, j<${#p_artist[@]}; i++, j++))
-do
-    echo "cleartagid ${idlist[$i]}" >&5
-    echo "addtagid ${idlist[$i]} artist \"${p_artist[$j]}\"" >&5
-    echo "addtagid ${idlist[$i]} title \"${p_title[$j]}\"" >&5
-    echo "addtagid ${idlist[$i]} album \"${p_album[$j]}\"" >&5
-done
-echo "close" >&5
-exec 5>&-
+    # Get the current playlist info
+    exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
+    sleep 0.5s
+    echo "playlistid" >&5
+    echo "close" >&5
+    idlist=($(cat <&5 | sed '/ Id: /,/ file:/d' | sed -n '/^Id: /p' | sed 's/Id: //'))
+    exec 5>&-
+
+    # Add tags
+    exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
+    sleep 0.5s
+    for ((i=${#idlist[@]}-${#p_artist[@]}, j=0; i<${#p_artist[@]}, j<${#p_artist[@]}; i++, j++)) do
+        echo "cleartagid ${idlist[$i]}" >&5
+        echo "addtagid ${idlist[$i]} artist \"${p_artist[$j]}\"" >&5
+        echo "addtagid ${idlist[$i]} title \"${p_title[$j]}\"" >&5
+        echo "addtagid ${idlist[$i]} album \"${p_album[$j]}\"" >&5
+    done
+    echo "close" >&5
+    exec 5>&-
+fi
 
 mpc -q  play
