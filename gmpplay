@@ -1,98 +1,57 @@
-#! /bin/bash
-#
-# Copyright (c) 2015
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+#!/usr/bin/env bash
 
-#Easy search for GMusicProxy
+# Easy GMusicProxy helper
+# Created by onespaceman
+# https://github.com/onespaceman/gmpplay
 
-#variables
-numtracks="100" #max number of tracks to get
-host="localhost" #GMusicProxy host
-port="9999" #GMusicProxy port
-mpd_host="localhost" #mpd host
-mpd_port="6600" #mpd  port
+# Requires MPD, MPC, and GMusicProxy
+
+usage () {
+    echo "
+$(tput bold)ABOUT$(tput sgr0)
+    $(tput bold)gmpplay$(tput sgr0) - Easily add music through GMusicProxy
+
+$(tput bold)USAGE$(tput sgr0)
+    $(tput bold)gmpplay$(tput sgr0) [options] Artist - Title
+
+    Options are to be combined like so: -cra
+    The artist and title is to be separated with a dash -
+
+$(tput bold)OPTIONS$(tput sgr0)
+    The default action of mpdplay is to add an artist.
+
+    $(tput bold)-a$(tput sgr0) Add an album
+    $(tput bold)-s$(tput sgr0) Add a song
+    $(tput bold)-r$(tput sgr0) Create a radio station from an artist, album or song.
+    $(tput bold)-h$(tput sgr0) Show help
+    $(tput bold)-c$(tput sgr0) Clear the queue in mpd before adding songs
+    "
+    exit;
+}
+
+# Default variables
+numtracks="100" # Max number of tracks to get
 searchtype="get_by_search"
 option="searchartist"
 
-usage () {
-        echo  "
-$(tput bold)ABOUT$(tput sgr0)
-   $(tput bold)gmpplay$(tput sgr0) - Quickly add music through GMusicProxy
 
-$(tput bold)USAGE$(tput sgr0)
-   $(tput bold)gmpplay$(tput sgr0) [options] Artist - Title
-
-   Options are to be combined like: -cra
-   The artist and title is to be separated with a "-"
-
-$(tput bold)OPTIONS$(tput sgr0)
-   $(tput bold)Default$(tput sgr0)
-      The default action of mpdplay is to add an artist.
-
-      Example:
-      $(tput bold)gmpplay$(tput sgr0) Artist
-
-   $(tput bold)-a$(tput sgr0)
-      Add an album
-
-      Example:
-      $(tput bold)gmpplay$(tput sgr0) -a Artist - Album Title
-
-   $(tput bold)-s$(tput sgr0)
-      Add a song (currently only works for radio stations)
-
-      Example:
-      $(tput bold)gmpplay$(tput sgr0) -sr Artist - Song Title
-
-      $(tput bold)-r$(tput sgr0)
-      Create a radio station from an artist, album or song.
-
-      Example:
-      $(tput bold)gmpplay$(tput sgr0) -r Artist
-
-   $(tput bold)-h$(tput sgr0)
-      Show help
-
-   $(tput bold)-c$(tput sgr0)
-      Clear current playlist in mpd before adding songs
-      "
-	exit;
-}
-
-#search types
+# Search functions
 searchartist () {
-	search1="artist&artist=${artist// /%}";
-	search2="&num_tracks=$numtracks";
+    search1="artist&artist=${artist// /%}";
+    search2="&num_tracks=$numtracks";
 }
 
 searchalbum () {
-        searchartist;
-	search1="album&artist=${artist// /%}&title=${title// /%}";
+    searchartist;
+    search1="album&artist=${artist// /%}&title=${title// /%}";
 }
 
 searchsong () {
-        searchartist;
-	search1="song&artist=${artist// /%}&title=${title// /%}";
+    searchartist;
+    search1="song&artist=${artist// /%}&title=${title// /%}";
 }
 
-#options
+# Options
 while getopts "hcasr" opt; do
         case $opt in
                 h)
@@ -118,7 +77,36 @@ while getopts "hcasr" opt; do
         shift $((OPTIND-1))
 done
 
-#check if artist/title is given and prompt if not
+# Get MPD config from ~/.config/mpd/mpd.conf
+if grep -Fq "bind_to_address" $HOME/.config/mpd/mpd.conf; then
+    mpd_host=$(grep -F "bind_to_address" $HOME/.config/mpd/mpd.conf \
+        | cut -d '"' -f2)
+else
+    mpd_host="localhost"
+fi
+
+if grep -Fq "port" $HOME/.config/mpd/mpd.conf; then
+    mpd_port=$(grep -F "bind_to_address" $HOME/.config/mpd/mpd.conf \
+        | cut -d '"' -f2)
+else
+    mpd_port="6600"
+fi
+
+# Get GMusicProxy config from ~/.config/gmusicproxy.cfg
+if grep -Fq "host" $HOME/.config/gmusicproxy.cfg; then
+    gmp_host=$(grep -F "host" $HOME/.config/gmusicproxy.cfg \
+        | cut -d '=' -f2 | sed 's/^[ \t]*//')
+else
+    gmp_host="localhost"
+fi
+if grep -Fq "port" $HOME/.config/gmusicproxy.cfg; then
+    gmp_port=$(grep -F "port" $HOME/.config/gmusicproxy.cfg \
+        | cut -d '=' -f2 | sed 's/^[ \t]*//')
+else
+    gmp_port="9999"
+fi
+
+# Check if artist/title is given and prompt if not
 if (( "$#" != 0 )); then
         IFS="-" read -r artist title <<< "$@"
         artist="$(echo -e "${artist}" | sed -e 's/[[:space:]]*$//')"
@@ -132,22 +120,22 @@ else
         fi
 fi
 
-#call functions
+# Call functions
 $option
 $doclear
 
-curl -s "http://$host:$port/$searchtype?type=$search1$search2" | tee /tmp/current.m3u | grep -v "^#" | while read url; do mpc add "$url"; done
+# Get music with GMusicProxy
+curl -s "http://$gmp_host:$gmp_port/$searchtype?type=$search1$search2" | tee /tmp/current.m3u | grep -v "^#" | while read url; do mpc add "$url"; done
 
-#import playlist into arrays
-while read line
-do
-        p_artist+=("${line%% - *}")
-        tmp="${line#* - }"
-        p_title+=("${tmp% - *}")
-        p_album+=("${line##* - }")
+# Import playlist into arrays
+while read line; do
+    p_artist+=("${line%% - *}")
+    tmp="${line#* - }"
+    p_title+=("${tmp% - *}")
+    p_album+=("${line##* - }")
 done <<< "$(cat /tmp/current.m3u | sed -n 0~2p | sed -e 's/.*[0-9],//')"
 
-#get the current playlist info
+# Get the current playlist info
 exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
 sleep 0.5s
 echo "playlistid" >&5
@@ -155,15 +143,15 @@ echo "close" >&5
 idlist=($(cat <&5 | sed '/ Id: /,/ file:/d' | sed -n '/^Id: /p' | sed 's/Id: //'))
 exec 5>&-
 
-#add tags
+# Add tags
 exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
 sleep 0.5s
 for ((i=${#idlist[@]}-${#p_artist[@]}, j=0; i<${#p_artist[@]}, j<${#p_artist[@]}; i++, j++))
 do
-        echo "cleartagid ${idlist[$i]}" >&5
-        echo "addtagid ${idlist[$i]} artist \"${p_artist[$j]}\"" >&5
-        echo "addtagid ${idlist[$i]} title \"${p_title[$j]}\"" >&5
-        echo "addtagid ${idlist[$i]} album \"${p_album[$j]}\"" >&5
+    echo "cleartagid ${idlist[$i]}" >&5
+    echo "addtagid ${idlist[$i]} artist \"${p_artist[$j]}\"" >&5
+    echo "addtagid ${idlist[$i]} title \"${p_title[$j]}\"" >&5
+    echo "addtagid ${idlist[$i]} album \"${p_album[$j]}\"" >&5
 done
 echo "close" >&5
 exec 5>&-
