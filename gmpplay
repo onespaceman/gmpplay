@@ -7,7 +7,7 @@
 # Requires MPD, MPC, and GMusicProxy
 
 usage () {
-    echo "
+    printf "%s\n" "
 $(tput bold)ABOUT$(tput sgr0)
     $(tput bold)gmpplay$(tput sgr0) - Easily add music through GMusicProxy
 
@@ -26,36 +26,24 @@ $(tput bold)OPTIONS$(tput sgr0)
     $(tput bold)-h$(tput sgr0) Show help
     $(tput bold)-c$(tput sgr0) Clear the queue in mpd before adding songs
     "
-    exit;
+    exit
 }
 
 # Default variables
-numtracks="100" # Max number of tracks to get
+numtracks=100 # Max number of tracks to get
 search_type="get_by_search"
 search_for="artist"
 
 # Options
 while getopts "hcasr" opt; do
     case $opt in
-        h)
-            usage
-            ;;
-        c)
-            doclear=1
-            ;;
-        a)
-            search_for="album"
-            ;;
-        s)
-            search_for="song"
-            ;;
-        r)
-            search_type="get_new_station_by_search"
-            ;;
-        \?)
-            echo "Invalid option"
-            usage
-            ;;
+        h) usage ;;
+        c) doclear=1 ;;
+        a) search_for="album" ;;
+        s) search_for="song"
+            numtracks=1 ;;
+        r) search_type="get_new_station_by_search" ;;
+        \?) usage ;;
     esac
     shift $((OPTIND-1))
 done
@@ -64,8 +52,6 @@ done
 # Check if artist/title is given and prompt if not
 if (( "$#" != 0 )); then
     IFS="-" read -r artist title <<< "$@"
-    artist="$(echo -e "${artist}" | sed -e 's/[[:space:]]*$//')"
-    title="$(echo -e "${title}" | sed -e 's/^[[:space:]]*//')"
 else
     printf "Artist: "
     read artist
@@ -78,14 +64,14 @@ fi
 
 # Get MPD config from ~/.config/mpd/mpd.conf
 if grep -Fq "bind_to_address" $HOME/.config/mpd/mpd.conf; then
-    mpd_host=$(grep -F "bind_to_address" $HOME/.config/mpd/mpd.conf \
+    mpd_host=$(grep -F "bind_to_address" ${XDG_CONFIG_HOME:-$HOME/.config}/mpd/mpd.conf \
         | cut -d '"' -f2)
 else
     mpd_host="localhost"
 fi
 
 if grep -Fq "port" $HOME/.config/mpd/mpd.conf; then
-    mpd_port=$(grep -F "bind_to_address" $HOME/.config/mpd/mpd.conf \
+    mpd_port=$(grep -F "bind_to_address" ${XDG_CONFIG_HOME:-$HOME/.config}/mpd/mpd.conf \
         | cut -d '"' -f2)
 else
     mpd_port="6600"
@@ -93,22 +79,20 @@ fi
 
 # Get GMusicProxy config from ~/.config/gmusicproxy.cfg
 if grep -Fq "host" $HOME/.config/gmusicproxy.cfg; then
-    gmp_host=$(grep -F "host" $HOME/.config/gmusicproxy.cfg \
+    gmp_host=$(grep -F "host" ${XDG_CONFIG_HOME:-$HOME/.config}/gmusicproxy.cfg \
         | cut -d '=' -f2 | sed 's/^[ \t]*//')
 else
     gmp_host="localhost"
 fi
 if grep -Fq "port" $HOME/.config/gmusicproxy.cfg; then
-    gmp_port=$(grep -F "port" $HOME/.config/gmusicproxy.cfg \
+    gmp_port=$(grep -F "port" ${XDG_CONFIG_HOME:-$HOME/.config}/gmusicproxy.cfg \
         | cut -d '=' -f2 | sed 's/^[ \t]*//')
 else
     gmp_port="9999"
 fi
 
 # Clear mpc queue
-if [[ -n "$doclear" ]]; then
-    mpc -q clear
-fi
+[[ -z "$doclear" ]] || mpc -q clear
 
 # Get music with GMusicProxy
 search_url="http://$gmp_host:$gmp_port/$search_type?type=${search_for}&artist=${artist// /%}&title=${title// /%}&num_tracks=$numtracks"
@@ -116,7 +100,8 @@ search_url="http://$gmp_host:$gmp_port/$search_type?type=${search_for}&artist=${
 if [[ "$search_for" = "song" ]] && [[ "$search_type" = "get_by_search" ]]; then
     mpc add "$search_url"
 else
-    curl -s "$search_url" | tee /tmp/current.m3u | grep -v "^#" | while read url; do mpc add "$url"; done
+    playlist=$(curl -s "$search_url")
+    printf "$playlist" | grep -v "^#" | while read url; do mpc add "$url"; done
 
     # Import playlist into arrays
     while read line; do
@@ -124,13 +109,13 @@ else
         tmp="${line#* - }"
         p_title+=("${tmp% - *}")
         p_album+=("${line##* - }")
-    done <<< "$(cat /tmp/current.m3u | sed -n 0~2p | sed -e 's/.*[0-9],//')"
+    done <<< "$(printf "$playlist" | sed -n 0~2p | sed -e 's/.*[0-9],//')"
 
     # Get the current playlist info
     exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
     sleep 0.5s
-    echo "playlistid" >&5
-    echo "close" >&5
+    printf "%s\n" "playlistid" >&5
+    printf "%s\n" "close" >&5
     idlist=($(cat <&5 | sed '/ Id: /,/ file:/d' | sed -n '/^Id: /p' | sed 's/Id: //'))
     exec 5>&-
 
@@ -138,12 +123,12 @@ else
     exec 5<> /dev/tcp/$mpd_host/$mpd_port 2>/dev/null
     sleep 0.5s
     for ((i=${#idlist[@]}-${#p_artist[@]}, j=0; i<${#p_artist[@]}, j<${#p_artist[@]}; i++, j++)) do
-        echo "cleartagid ${idlist[$i]}" >&5
-        echo "addtagid ${idlist[$i]} artist \"${p_artist[$j]}\"" >&5
-        echo "addtagid ${idlist[$i]} title \"${p_title[$j]}\"" >&5
-        echo "addtagid ${idlist[$i]} album \"${p_album[$j]}\"" >&5
+        printf "%s\n" "cleartagid ${idlist[$i]}" >&5
+        printf "%s\n" "addtagid ${idlist[$i]} artist \"${p_artist[$j]}\"" >&5
+        printf "%s\n" "addtagid ${idlist[$i]} title \"${p_title[$j]}\"" >&5
+        printf "%s\n" "addtagid ${idlist[$i]} album \"${p_album[$j]}\"" >&5
     done
-    echo "close" >&5
+    printf "%s\n" "close" >&5
     exec 5>&-
 fi
 
