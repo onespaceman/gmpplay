@@ -4,7 +4,7 @@ easily play music with MPD and GMusicProxy.
 #####usage:  
 `chmod +x gmpplay` to make the script executable  
 `gmpplay <options> <artist> - <title>`  
-gmpplay tries to get your MPD and GMusicProxy configuration from ~/.config/mpd/mpd.conf and ~/.config/gmusicproxy.cfg. If those files or the required settings are not found, it reverts to the default values.
+gmpplay tries to get your MPD and GMusicProxy configuration from $XDG_CONFIG_HOME/mpd/mpd.conf and $XDG_CONFIG_HOME/gmusicproxy.cfg OR from $HOME/.config/mpd/mpd.conf and $HOME/.config/gmusicproxy.cfg. If those files or the required settings are not found, it reverts to the default values.
  
 #####options:  
 `-h`  show help
