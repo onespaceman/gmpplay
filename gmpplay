@@ -61,35 +61,28 @@ else
     fi
 fi
 
+# Start GMusicProxy if not running
+if ! pgrep GMusicProxy >/dev/null 2>&1; then
+    GMusicProxy || { echo "GMusicProxy not running"; exit; }
+fi
 
 # Get MPD config from ~/.config/mpd/mpd.conf
-if grep -Fq "bind_to_address" $HOME/.config/mpd/mpd.conf; then
-    mpd_host=$(grep -F "bind_to_address" ${XDG_CONFIG_HOME:-$HOME/.config}/mpd/mpd.conf \
-        | cut -d '"' -f2)
-else
-    mpd_host="localhost"
-fi
+mpd_host=$(grep -F "bind_to_address" ${XDG_CONFIG_HOME:-$HOME/.config}/mpd/mpd.conf \
+    2>/dev/null | cut -d '"' -f2)
+mpd_host="${mpd_host:-localhost}"
 
-if grep -Fq "port" $HOME/.config/mpd/mpd.conf; then
-    mpd_port=$(grep -F "bind_to_address" ${XDG_CONFIG_HOME:-$HOME/.config}/mpd/mpd.conf \
-        | cut -d '"' -f2)
-else
-    mpd_port="6600"
-fi
+mpd_port=$(grep -F "port" ${XDG_CONFIG_HOME:-$HOME/.config}/mpd/mpd.conf \
+    2>/dev/null | cut -d '"' -f2)
+mpd_port="${mpd_port:-6600}"
 
 # Get GMusicProxy config from ~/.config/gmusicproxy.cfg
-if grep -Fq "host" $HOME/.config/gmusicproxy.cfg; then
-    gmp_host=$(grep -F "host" ${XDG_CONFIG_HOME:-$HOME/.config}/gmusicproxy.cfg \
-        | cut -d '=' -f2 | sed 's/^[ \t]*//')
-else
-    gmp_host="localhost"
-fi
-if grep -Fq "port" $HOME/.config/gmusicproxy.cfg; then
-    gmp_port=$(grep -F "port" ${XDG_CONFIG_HOME:-$HOME/.config}/gmusicproxy.cfg \
-        | cut -d '=' -f2 | sed 's/^[ \t]*//')
-else
-    gmp_port="9999"
-fi
+gmp_host=$(grep -F "host" ${XDG_CONFIG_HOME:-$HOME/.config}/gmusicproxy.cfg \
+    2>/dev/null | cut -d '=' -f2 | sed 's/^[ \t]*//')
+gmp_host="${gmp_host:-localhost}"
+
+gmp_port=$(grep -F "port" ${XDG_CONFIG_HOME:-$HOME/.config}/gmusicproxy.cfg \
+    2>/dev/null | cut -d '=' -f2 | sed 's/^[ \t]*//')
+gmp_port="${gmp_port:-9999}"
 
 # Clear mpc queue
 [[ -z "$doclear" ]] || mpc -q clear
